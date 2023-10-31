@@ -146,7 +146,7 @@ class CalculationQE(Calculation):
             path2input =  f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
             path2incar = f"{self.dir}/qe_input.incar.in"
             self.input_params["control"]["calculation"] = '"nscf"'
-            self.input_params["system"]["nbnd"] = 10
+            self.input_params["system"]["nbnd"] = 30
             self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
             # self.list_tmp.append(path2incar)
         elif mode=='projwfc':
@@ -430,7 +430,7 @@ class CalculationQE(Calculation):
         # nscf_part
         self.input_params["control"]["calc"] = 'nscf'
         # tmp
-        self.input_params["system"]["nbnd"] = '8'
+        self.input_params["system"]["nbnd"] = '30'
         self.write_input_file(output_filename=path2incar)
         self.list_tmp.append(path2incar)
 
