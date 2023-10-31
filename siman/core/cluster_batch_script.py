@@ -183,7 +183,8 @@ def write_batch_header(cl, batch_script_filename = None,
            
             f.write("export PATH=$PATH:"+header.cluster['homepath'] +"/tools/\n")
 
-        
+        if schedule_system == 'SLURM-python':
+            pass
         if schedule_system == 'simple':
             f.write("#!/bin/bash   \n")
             # f.write("mpirun -np "+str(corenum)+" /home/hieuvatly/vasp.5.4.4/bin/vasp_std \n")
@@ -215,7 +216,7 @@ def prepare_input(cl, prevcalcver = None, option = None, input_geofile = None, n
 
         curver - current version
     """  
-
+    write=False
 
     if write:
         # if not 'only_neb' in cl.calc_method:
@@ -241,6 +242,10 @@ def prepare_input(cl, prevcalcver = None, option = None, input_geofile = None, n
                     pass
                 elif cl.calculator == 'qe':
                     f.write("cat INCAR "+input_geofile+"  > scf.in\n")
+                # elif cl.calculator == 'qe-acbn0':
+                #     f.write("cat INCAR "+input_geofile+"  > scf.in\n")
+                #     f.write("cat INCAR "+input_geofile+"  > scf.in\n")
+                #     f.write("cat INCAR "+input_geofile+"  > scf.in\n")
     return
 
 
@@ -276,6 +281,8 @@ def run_command(cl, option, name, parrallel_run_command,
                 f.write("python "+header.cluster_home+'/'+ header.cluster_tools+'/siman/polaron.py > polaron.log\n')
             elif 'polaron2' in cl.calc_method:
                 f.write("python "+header.cluster_home+'/'+ header.cluster_tools+'/siman/polaron_mod.py > polaron.log\n')
+            elif 'acbn0' in cl.calc_method:
+                f.write("python "+header.cluster_home+'/'+ header.cluster_tools+'/siman/main.py > acbn0.log\n')
 
             elif 'atat' in  cl.calc_method:
                 f.write('maps -d&\npollmach runstruct_vasp mpirun\n')
@@ -287,6 +294,8 @@ def run_command(cl, option, name, parrallel_run_command,
                     f.write(parrallel_run_command +" < input.gau > "+name+".out\n")
                 elif cl.calculator == 'qe':
                     f.write(parrallel_run_command +" < scf.in > "+name+".log\n")
+                elif cl.calculator == 'qe-acbn0':
+                    f.write("python "+name+".log\n")
                 else:
                     printlog('Error! Calculator ', cl.calculator, 'is unknown!')
 
@@ -425,8 +434,6 @@ def name_mod_U_last(cl):
 
     return name_mod_last
 
-
-
  
 def write_body(cl, version = None, savefile = None, set_mod = '', copy_poscar_flag = True,
     final_analysis_flag = True, penult_set_name = None, 
@@ -440,7 +447,7 @@ def write_body(cl, version = None, savefile = None, set_mod = '', copy_poscar_fl
     f (file ) - file object
     """
     v = version
-    if 'only_neb' in cl.calc_method:
+    if 'only_neb' in cl.calc_method or 'acbn0' in cl.calc_method:
         write = False
         write_poscar = False
     else:
@@ -588,7 +595,6 @@ def write_body(cl, version = None, savefile = None, set_mod = '', copy_poscar_fl
 
     return contcar_file
 
-
 def u_ramp_prepare(cl):
     if 'u_ramping' in cl.calc_method:
         u = cl.update_incar(parameter = 'LDAUU', u_ramp_step = cl.set.u_ramping_nstep-1, write = False, f = f)
@@ -645,8 +651,6 @@ def u_ramp_loop(cl, ver_prefix = '', subfolders = None, run_name_prefix = None, 
 
 
     return contcar
-
-
 
 def write_footer(cl, set_mod = '', run_tool_flag = True, 
     savefile = None, final_analysis_flag = True, neb_flag = None, f = None, mpi = False, corenum = 1, option = None,parrallel_run_command=None, output_files_names = None):
@@ -832,12 +836,6 @@ def write_footer(cl, set_mod = '', run_tool_flag = True,
 
 
     return contcar_file, subfolders
-
-
-
-
-
-
 
 def write_batch_body(cl, input_geofile = "header", version = 1, option = None, 
     prevcalcver = None, savefile = None, schedule_system = None,

@@ -22,7 +22,7 @@ from siman.functions import (
 )
 import os, copy, glob, shutil, sys
 
-# Some functions are left as placeholders and will need to be implemented as needed.
+# Some functions are left as placeholders and will need to be implemented.
 
 
 class CalculationQE(Calculation):
@@ -32,21 +32,15 @@ class CalculationQE(Calculation):
         self.calculator = "qe"
         self.input_instance = {}
         self.input_params = {}
+        self.input_params_projwfc ={}
         self.list_pot = []
         self.list_tmp = []
         printlog("Attention! This calculator is in a test mode\n")
 
         self.list_e_sigma0 = []
 
-    def write_structure(
-        self,
-        name_of_output_file,
-        type_of_coordinates="dir",
-        option=None,
-        prevcalcver=None,
-        path=None,
-        state="init",
-    ):
+    def write_structure(self, name_of_output_file, type_of_coordinates="dir", 
+                        option=None, prevcalcver=None, path=None, state="init",):
         if path is None:
             path = self.dir
         if state == "init":
@@ -61,6 +55,7 @@ class CalculationQE(Calculation):
         # makedir(filename)
         self.st.write_espresso(filename=path2poscar)
         # self.list_pos.append(path2poscar)
+        self.path2poscar=path2poscar
         return path2poscar
 
     def set_output_filenames(self, out_name, version):
@@ -97,7 +92,7 @@ class CalculationQE(Calculation):
     def make_kpoints_file(self):
         """Generate file with kpoints"""
         path2kcar = f"{self.dir}/qe_input.kcar.in"
-        # self.init.ngkpt = [3,3,3]
+        # self.init.ngkpt = [4,4,4]
         with open(path2kcar, "w") as f:
             f.writelines("K_POINTS automatic \n")
             f.writelines(f" ".join(str(nk) for nk in self.init.ngkpt))
@@ -111,11 +106,12 @@ class CalculationQE(Calculation):
 
     def copy_to_cluster(self, list_to_copy, update):
         list_to_copy += self.list_pot
+        list_to_copy+=['./main.py']
         list_to_copy.extend(glob.glob(os.path.join(self.dir, "*POSCAR*")))
         # list_to_copy+=self.list_pos
         # print(self.list_pos)
         if "up" in update:
-            # printlog('Files to copy:', list_to_copy)
+            printlog('Files to copy:', list_to_copy)
             push_to_server(
                 list_to_copy,
                 self.project_path_cluster + "/" + self.dir,
@@ -127,7 +123,7 @@ class CalculationQE(Calculation):
         self.get_file(os.path.basename(path_to_outcar), up=load)
         return path_to_outcar
 
-    def make_incar(self):
+    def make_incar(self, mode='scf',  flavour='qe'):
         incar_list = []
         setseq = [self.set]
         if hasattr(self.set, 'set_sequence') and self.set.set_sequence:
@@ -139,32 +135,46 @@ class CalculationQE(Calculation):
                 name_mod = ''
             else:
                 name_mod = curset.ise+'.'
-            path2input = f"{self.dir}/{name_mod}INCAR"
-            path2incar = f"{self.dir}/{name_mod}qe_input.incar.in"
-            # Generate Head (system/electron/ion)
-            # try:
-            #     self.read_input_file(input_filename="./INCAR")
-            #     printlog("QE input  found")
-            # except:
-            #     printlog("QE input not found; attempting to create one from scratch")
-            #     # self._init_defualt()
-            # print('info set')
-            # print(curset.params)
+            # path2input = f"{self.dir}/{name_mod}INCAR"
+            # path2incar = f"{self.dir}/{name_mod}qe_input.incar.in"
             self.input_params = curset.params
             self.input_params["system"]["nat"] = self.st.natom
             self.input_params["system"]["ntyp"] = len([z for z in self.st.znucl])
-            self.write_input_file(output_filename=path2incar)
-            self.list_tmp.append(path2incar)
+            if mode == 'scf':
+                path2input = f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.scf.in'
+                path2incar = f"{self.dir}/qe_input.incar.in"
+                self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
+                self.list_tmp.append(path2incar)
+            elif mode =='nscf':
+                path2input =  f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
+                path2incar = f"{self.dir}/qe_input.incar.in"
+                self.input_params["control"]["calculation"] = '"nscf"'
+                self.input_params["system"]["nbnd"] = 30
+                self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
+            elif mode=='projwfc':
+                path2input=f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.projwfc.in'
+                self.input_params_projwfc['PROJWFC']["prefix"] = self.input_params["control"]["prefix"]
+                self.input_params_projwfc['PROJWFC']["outdir"] = self.input_params["control"]["outdir"] 
+                self.write_input_file(output_filename=path2input, inputdict=self.input_params_projwfc)
 
-            # Generate INPUT
-            print(self.list_tmp[::-1])
-            with open(path2input, "w") as outfile:
-                for fname in self.list_tmp[::-1]:
-                    with open(fname) as infile:
-                        outfile.write(infile.read())
-                    os.remove(fname)
+            self.list_tmp.append(path2incar)
+            if mode != 'projwfc':
+                print(self.list_tmp[::-1])
+                with open(path2input, "w") as outfile:
+                    for fname in self.list_tmp[::-1]:
+                        with open(fname) as infile:
+                            outfile.write(infile.read())
+                        os.remove(fname)
             incar_list.append(path2input)
         return incar_list
+
+
+
+
+
+
+    def clean_tmp(self):
+        os.system(f'rm {self.dir}/qe_input*')
 
     def _init_defualt(self):
         default_input_params = {
@@ -190,7 +200,17 @@ class CalculationQE(Calculation):
             "electrons": {},
             "ions": {},
             "cell": {"cell_dofree": "'ibrav'"},
-        }
+            }
+        default_input_params_projwfc={
+            'PROJWFC':{
+                    'prefix':'MgO',
+                    'outdir':"'./'",
+                    'filpdos':"'./proj'",
+                    'lwrite_overlaps':'.TRUE.',
+                    'lbinary_data': '.false.',
+                }}
+
+        self.input_params_projwfc = default_input_params_projwfc.copy()
         self.input_params = default_input_params.copy()
 
     def update_params(self, section, key, value):
@@ -206,7 +226,7 @@ class CalculationQE(Calculation):
         elif  "KSPACING" in self.input_params.keys():
             del self.input_params["KSPACING"]
         with open(output_filename, "w") as f:
-            for section, params in self.input_params.items():
+            for section, params in inputdict.items():
                 f.write(f"&{section}\n")
                 for key, value in params.items():
                     f.write(f"    {key} = {value}\n")
@@ -407,3 +427,50 @@ class CalculationQE(Calculation):
             printlog("No output file found")
             state = "no ouputfile"
         return state
+
+    def make_incar_nscf(self):
+        path2input = f"{self.dir}/INCAR"
+        path2incar = f"{self.dir}/qe_input.incar.in"
+        # Generate Head (system/electron/ion)
+        self._init_defualt()
+        try:
+            self.read_input_file(input_filename="./INCAR")
+            printlog("QE input  found")
+        except:
+            printlog("QE input not found; attempting to create one from scratch")
+        self.input_params["system"]["nat"] = self.st.natom
+        self.input_params["system"]["ntyp"] = len([z for z in self.st.znucl])
+        # nscf_part
+        self.input_params["control"]["calc"] = 'nscf'
+        # tmp
+        self.input_params["system"]["nbnd"] = '30'
+        self.write_input_file(output_filename=path2incar)
+        self.list_tmp.append(path2incar)
+
+        # Generate INPUT
+        print(self.list_tmp[::-1])
+        with open(path2input, "w") as outfile:
+            for fname in self.list_tmp[::-1]:
+                with open(fname) as infile:
+                    outfile.write(infile.read())
+                os.remove(fname)
+        return [path2input]
+    
+    def make_incar_projwfc(self):
+        path2input = f"{self.dir}/INCAR"
+        # Generate Head (system/electron/ion)
+        try:
+            self.read_input_file(input_filename="./INCAR")
+            printlog("QE input  found")
+        except:
+            printlog("QE input not found; attempting to create one from scratch")
+            self._init_defualt()
+
+        # projwfc_part
+        self.input_params_projwfc['projwfc']["prefix"] = self.input_params["control"]["prefix"]
+        self.input_params_projwfc['projwfc']["outdir"] = self.input_params["control"]["outdir"] 
+
+        self.write_input_file(output_filename=f'{self.input_params["control"]["prefix"]}.projwfc.in', pp='projwfc')
+        # self.list_tmp.append(path2incar)
+
+        return [path2input]

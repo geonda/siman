@@ -1189,7 +1189,6 @@ def add_loop(it, setlist, verlist, calc = None, varset = None,
                 struct_des[it].ngkpt_dict_for_kspacings[kspacing] = ngkpt
 
 
-
     def add_loop_choose_input_folder(ifolder, inputset):
         
         if header.SIMAN_WEB:
@@ -1249,6 +1248,7 @@ def add_loop(it, setlist, verlist, calc = None, varset = None,
                 wrapper_cp_on_server(calc[id_base].path["charge"], header.project_path_cluster + '/' + calc[id].dir + '/', new_filename = 'CHGCAR')
             else:
                 pass
+        
         if inherit_option  == 'optic':
             printlog('Copying WAVECAR ...', imp = 'y')
             if copy_to_server:
@@ -1281,8 +1281,6 @@ def add_loop(it, setlist, verlist, calc = None, varset = None,
 
         if hstring != header.history[-1]: 
             header.history.append( hstring  )
-
-
 
         if up not in ('up1','up2','up3'): 
             printlog("Warning! You are in the test mode, to add please change up to up1; "); 
@@ -1620,6 +1618,13 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
             elif params.get('calculator') == 'qe':
                 'Quantum Espresso'
                 cl = CalculationQE( varset[id[1]] )
+                print(dir(cl))
+            elif params.get('calculator') =='qe-acbn0':
+                # 'Quantum Espresso'
+                # print(varset[id[1]])
+                # print(dir(varset[id[1]]))
+                cl = CalculationQE( varset[id[1]] )
+
         else:
 
             if input_st and isinstance(input_st, Molecule):
@@ -1646,7 +1651,9 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
         cl.dir = blockdir+'/'+ str(id[0]) +'.'+ str(id[1])+'/'
         
 
-        batch_script_filename = cl.dir +  cl.id[0]+'.'+cl.id[1]+'.run'        
+        batch_script_filename = cl.dir +  cl.id[0]+'.'+cl.id[1]+'.run'     
+        if cl.calculator=='qe-acbn0':
+               batch_script_filename = cl.dir +  cl.id[0]+'.'+cl.id[1]+'.run.py'
 
 
         # all additional properties:
@@ -1843,8 +1850,17 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
                 write_batch_body(cl, mode = 'footer', schedule_system = cl.schedule_system, option = inherit_option, 
                     output_files_names = output_files_names, batch_script_filename = batch_script_filename, savefile = savefile, 
                     mpi = mpi, corenum = corenum )
+                # creates incar
+                # path2input = cl.make_incar() 
+                # 
                 
-                list_to_copy.extend( cl.make_incar() )
+                for item in ['scf', 'nscf','projwfc']:
+                    print(item)
+                    path2input = cl.make_incar(mode=item, flavour ='qe-acbn0')
+                    list_to_copy.extend(path2input)
+                # else:
+                #     path2input = cl.make_incar()
+                #     list_to_copy.extend(path2input)
                 
                 # list_to_copy.extend( cl.make_kpoints_file() )
 
@@ -1870,7 +1886,7 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
 
                 if header.copy_to_cluster_flag: 
                     cl.copy_to_cluster(list_to_copy, up)
-
+                   
                     batch_on_server = cl.project_path_cluster+'/'+batch_script_filename 
 
                     printlog('Setting executable rights for batch script on server', batch_on_server)
@@ -1878,6 +1894,9 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
 
                     if header.siman_run or run: #for IPython should be only for run = 1 
                         make_run(cl.dir, cl.schedule_system, batch_on_server)
+
+                    # if header.siman_run or run:
+                    #     make_run_acbn0()
 
             cl.state = "2. Ready for start"
 

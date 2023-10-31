@@ -22,12 +22,16 @@ def prepare_run():
                 # f.write(header.cluster['modules']+'\n')
             # f.write("module load sge\n")
             # f.write("module load vasp/parallel/5.2.12\n")
-        elif schedule_system in ('PBS', 'SLURM', 'none'):
+        elif schedule_system in ('PBS', 'SLURM', 'none', 'SLURM-python'):
             f.write("#!/bin/bash\n")
         else:
             ''
             # print_and_log('Please provide schedule_system!')
             # raise RuntimeError
+        if schedule_system == 'SLURM-python':
+            f.write('module load Compiler/Intel/20u4\n')
+            f.write('module load ScriptLang/python/3.10i_2020u4\n')
+            f.write('source ~/venv/paoflow_slurm/bin/activate\n')
 
     # f.close()
     return
@@ -71,9 +75,16 @@ def make_run(cl_dir, schedule_system, run_name):
         
         
         elif schedule_system == 'SLURM':
-            f.write("squeue\n") 
+            f.write("squeue --user=a.geondzhian \n") 
             f.write("sbatch " + run_name+"\n") 
-            # f.write("sbatch -p AMG " + run_name+"\n") 
+        elif schedule_system == 'SLURM-python':
+            f.write(f"cd ./{cl_dir}\n")
+            f.write("pwd \n")
+            f.write("echo 'debug' \n")
+            f.write("squeue --user=a.geondzhian \n") 
+            f.write(f"python main.py > main.log & \n") 
+            f.write("cd /home/a.geondzhian/\n")
+        #     # f.write("sbatch -p AMG " + run_name+"\n") 
 
         elif schedule_system in ['none']:
             if header.PATH2PROJECT == '':
@@ -123,6 +134,7 @@ def complete_run(close_run = True):
         if header.copy_to_cluster_flag:
             push_to_server('run',  header.cluster_home, header.cluster_address)
             run_on_server('chmod +x run', header.cluster_address)
+            print(run_on_server('./run'))
             printlog('run sent')
     
     return
