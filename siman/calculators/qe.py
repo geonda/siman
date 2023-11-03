@@ -34,7 +34,7 @@ class CalculationQE(Calculation):
         self.input_params = {}
         self.input_params_projwfc ={}
         self.list_pot = []
-        self.dict_tmp = {}
+        self.list_tmp = []
         printlog("Attention! This calculator is in a test mode\n")
 
         self.list_e_sigma0 = []
@@ -154,31 +154,29 @@ class CalculationQE(Calculation):
                 path2input =  f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
                 path2incar = f"{self.dir}/qe_input.incar.in"
                 self.input_params["control"]["calculation"] = '"nscf"'
-                self.input_params["system"]["nbnd"] = 30
+                # self.input_params["system"]["nbnd"] = 30
                 self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
-                self.list_tmp.append(path2incar)
+
             elif mode=='projwfc':
                 self._init_defualt() # has to be moved to set_functions
                 path2input=f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.projwfc.in'
                 self.input_params_projwfc_['PROJWFC']["prefix"] = self.input_params["control"]["prefix"]
                 self.input_params_projwfc_['PROJWFC']["outdir"] = self.input_params["control"]["outdir"] 
                 self.write_input_file(output_filename=path2input, inputdict=self.input_params_projwfc_)
-
+                   # Generate INPUT
             if mode != 'projwfc':
                 print(self.list_tmp[::-1])
                 with open(path2input, "w") as outfile:
-                    for fname in self.list_tmp[::-1]:
+                    list2run = self.list_tmp[::-1]+[self.path2poscar] if flavour =='qe-acbn0' else self.list_tmp[::-1]
+                    for fname in list2run:
                         with open(fname) as infile:
                             outfile.write(infile.read())
+
                         # os.remove(fname)
             incar_list.append(path2input)
         # [os.remove(tmp) for tmp in self.list_tmp]
         return incar_list
-
-
-
-
-
+    
 
     def clean_tmp(self):
         os.system(f'rm {self.dir}/qe_input*')
