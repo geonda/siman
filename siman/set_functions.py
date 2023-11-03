@@ -458,7 +458,7 @@ class InputSet():
             s = self
         else:
             s = copy.deepcopy(self)
-        if self.calculator == 'qe':
+        if 'qe' in self.calculator:
             for section in param:
                 if section in self.params.keys():
                     for key in param[section]:

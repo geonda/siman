@@ -1618,12 +1618,11 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
             elif params.get('calculator') == 'qe':
                 'Quantum Espresso'
                 cl = CalculationQE( varset[id[1]] )
-                print(dir(cl))
+                print('running pure qe')
             elif params.get('calculator') =='qe-acbn0':
-                # 'Quantum Espresso'
-                # print(varset[id[1]])
-                # print(dir(varset[id[1]]))
                 cl = CalculationQE( varset[id[1]] )
+                cl.calculator='qe-acbn0'
+                print('running  qe-acbn0')
 
         else:
 
@@ -1804,7 +1803,7 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
 
 
 
-            if id == id_first or cl.calculator == 'qe':
+            if id == id_first or cl.calculator == 'qe' or cl.calculator == 'qe-acbn0' :
                 path_to_potcar = cl.add_potcar()
             
             print(setseq)
@@ -1853,11 +1852,16 @@ def add_calculation(structure_name, inputset, version, first_version, last_versi
                 # creates incar
                 # path2input = cl.make_incar() 
                 # 
-                
-                for item in ['scf', 'nscf','projwfc']:
-                    print(item)
-                    path2input = cl.make_incar(mode=item, flavour ='qe-acbn0')
+                print(cl.calculator)
+                if cl.calculator=='qe-acbn0':
+                    for item in ['scf', 'nscf','projwfc']:
+                        print(item)
+                        path2input = cl.make_incar(mode=item, flavour ='qe-acbn0')
+                        list_to_copy.extend(path2input)
+                else:
+                    path2input = cl.make_incar(mode='scf', flavour ='qe')
                     list_to_copy.extend(path2input)
+
                 # else:
                 #     path2input = cl.make_incar()
                 #     list_to_copy.extend(path2input)

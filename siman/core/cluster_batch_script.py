@@ -216,7 +216,9 @@ def prepare_input(cl, prevcalcver = None, option = None, input_geofile = None, n
 
         curver - current version
     """  
-    write=False
+    if cl.calculator == 'qe-acbn0':
+        write=False
+
 
     if write:
         # if not 'only_neb' in cl.calc_method:
@@ -408,7 +410,7 @@ def mv_files_according_versions(cl, savefile, v, name_mod = '', write = True,
                     ''
                     f.write("rm CHG   # rm_chg_wav flag\n") #
 
-    elif cl.calculator == 'gaussian' or cl.calculator == 'qe':
+    elif cl.calculator == 'gaussian' or cl.calculator == 'qe' or cl.calculator == 'qe-acbn0' :
         final_structure_file = None
         pass
 
@@ -781,7 +783,7 @@ def write_footer(cl, set_mod = '', run_tool_flag = True,
             # f.write('/home/aksenov/tools/fit_tool.py '+list2string(outputs)+'\n' )
             if cl.calculator == 'qe':
                 f.write('python '+header.cluster_home+'/tools/fit_tool_qe.py '+list2string(outputs)+'\n' )
-                f.write('cat INCAR 100.POSCAR > scf.in  \n')
+                f.write('cat INCAR 100.POSCAR > scf.in_final  \n')
             else:
                 f.write('python '+header.cluster_home+'/tools/fit_tool.py '+list2string(outputs)+'\n' )
                 f.write('cp 100.POSCAR POSCAR \n')
@@ -879,6 +881,8 @@ def write_batch_body(cl, input_geofile = "header", version = 1, option = None,
 
     elif self.calculator == 'qe':
         parrallel_run_command = self.cluster.get('qe_command') or 'please provide command for qe in *cluster* dict in simanrc.py'
+    elif  self.calculator == 'qe-acbn0':
+        parrallel_run_command =''
         
     else:
         printlog('Error! Unknown calculator', self.calculator )

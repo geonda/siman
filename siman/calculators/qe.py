@@ -34,7 +34,7 @@ class CalculationQE(Calculation):
         self.input_params = {}
         self.input_params_projwfc ={}
         self.list_pot = []
-        self.list_tmp = []
+        self.dict_tmp = {}
         printlog("Attention! This calculator is in a test mode\n")
 
         self.list_e_sigma0 = []
@@ -106,7 +106,8 @@ class CalculationQE(Calculation):
 
     def copy_to_cluster(self, list_to_copy, update):
         list_to_copy += self.list_pot
-        list_to_copy+=['./main.py']
+        if self.flavour == 'qe-acbn0':
+            list_to_copy+=['./main.py']
         list_to_copy.extend(glob.glob(os.path.join(self.dir, "*POSCAR*")))
         # list_to_copy+=self.list_pos
         # print(self.list_pos)
@@ -124,6 +125,7 @@ class CalculationQE(Calculation):
         return path_to_outcar
 
     def make_incar(self, mode='scf',  flavour='qe'):
+        self.flavour = flavour
         incar_list = []
         setseq = [self.set]
         if hasattr(self.set, 'set_sequence') and self.set.set_sequence:
@@ -145,27 +147,32 @@ class CalculationQE(Calculation):
                 path2incar = f"{self.dir}/qe_input.incar.in"
                 self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
                 self.list_tmp.append(path2incar)
+                print(path2incar,self.input_params)
+                print('debug')
+                # self.list_tmp.append(path2incar)
             elif mode =='nscf':
                 path2input =  f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
                 path2incar = f"{self.dir}/qe_input.incar.in"
                 self.input_params["control"]["calculation"] = '"nscf"'
                 self.input_params["system"]["nbnd"] = 30
                 self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
+                self.list_tmp.append(path2incar)
             elif mode=='projwfc':
+                self._init_defualt() # has to be moved to set_functions
                 path2input=f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.projwfc.in'
-                self.input_params_projwfc['PROJWFC']["prefix"] = self.input_params["control"]["prefix"]
-                self.input_params_projwfc['PROJWFC']["outdir"] = self.input_params["control"]["outdir"] 
-                self.write_input_file(output_filename=path2input, inputdict=self.input_params_projwfc)
+                self.input_params_projwfc_['PROJWFC']["prefix"] = self.input_params["control"]["prefix"]
+                self.input_params_projwfc_['PROJWFC']["outdir"] = self.input_params["control"]["outdir"] 
+                self.write_input_file(output_filename=path2input, inputdict=self.input_params_projwfc_)
 
-            self.list_tmp.append(path2incar)
             if mode != 'projwfc':
                 print(self.list_tmp[::-1])
                 with open(path2input, "w") as outfile:
                     for fname in self.list_tmp[::-1]:
                         with open(fname) as infile:
                             outfile.write(infile.read())
-                        os.remove(fname)
+                        # os.remove(fname)
             incar_list.append(path2input)
+        # [os.remove(tmp) for tmp in self.list_tmp]
         return incar_list
 
 
@@ -210,8 +217,8 @@ class CalculationQE(Calculation):
                     'lbinary_data': '.false.',
                 }}
 
-        self.input_params_projwfc = default_input_params_projwfc.copy()
-        self.input_params = default_input_params.copy()
+        self.input_params_projwfc_= default_input_params_projwfc.copy()
+        self.input_params_ = default_input_params.copy()
 
     def update_params(self, section, key, value):
         if section not in self.input_params:
@@ -220,17 +227,18 @@ class CalculationQE(Calculation):
             )
         self.input_params[section][key] = value
 
-    def write_input_file(self, output_filename="./scf.in"):
-        if "KPOINTS" in self.input_params.keys():
-            del self.input_params["KPOINTS"]
-        elif  "KSPACING" in self.input_params.keys():
-            del self.input_params["KSPACING"]
+    def write_input_file(self, output_filename="./scf.in", inputdict=None):
+        if "KPOINTS" in inputdict.keys():
+            del  inputdict["KPOINTS"]
+        elif  "KSPACING" in  inputdict.keys():
+            del  inputdict["KSPACING"]
         with open(output_filename, "w") as f:
             for section, params in inputdict.items():
                 f.write(f"&{section}\n")
                 for key, value in params.items():
                     f.write(f"    {key} = {value}\n")
                 f.write("/\n")
+        print('file written')
 
     def read_input_file(self, input_filename="./scf.in"):
         with open(input_filename, "r") as f:
