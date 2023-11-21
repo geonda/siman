@@ -5,42 +5,60 @@ from siman.set_functions import InputSet, qe_keys
 from siman.small_functions import makedir, list2string
 from siman.header import printlog
 from siman import header
-from siman.functions import (
-    read_vectors,
-    read_list,
-    words,
-    read_string,
-    element_name_inv,
-    invert,
-    calculate_voronoi,
-    get_from_server,
-    push_to_server,
-    run_on_server,
-    smoother,
-    file_exists_on_server,
-    check_output,
-)
-import os, copy, glob, shutil, sys
+from siman.functions import (read_vectors, read_list, words, read_string, element_name_inv, invert, calculate_voronoi,
+                             get_from_server, push_to_server, run_on_server, smoother, file_exists_on_server, check_output,)
+import os
+import copy
+import glob
+import shutil
+import sys
+import gzip
 
 # Some functions are left as placeholders and will need to be implemented.
 
 
 class CalculationQE(Calculation):
+    """Class resonsible for handeling most (in general should be all) QE specific details
+
+    Args:
+        Calculation (object): 
+    """
+
     def __init__(self, inset=None, iid=None, output=None):
         super(CalculationQE, self).__init__(inset, iid, output)
         self.len_units = "Angstrom"
         self.calculator = "qe"
         self.input_instance = {}
         self.input_params = {}
-        self.input_params_projwfc ={}
+        self.input_params_projwfc = {}
         self.list_pot = []
         self.list_tmp = []
         printlog("Attention! This calculator is in a test mode\n")
-
         self.list_e_sigma0 = []
 
-    def write_structure(self, name_of_output_file, type_of_coordinates="dir", 
-                        option=None, prevcalcver=None, path=None, state="init",):
+    def write_structure(self, name_of_output_file,
+                        type_of_coordinates="dir",
+                        option=None,
+                        prevcalcver=None,
+                        path=None,
+                        state="init",
+                        ):
+        """_summary_
+
+        Args:
+            name_of_output_file (_type_): _description_
+            type_of_coordinates (str, optional): _description_. Defaults to "dir".
+            option (_type_, optional): _description_. Defaults to None.
+            prevcalcver (_type_, optional): _description_. Defaults to None.
+            path (_type_, optional): _description_. Defaults to None.
+            state (str, optional): _description_. Defaults to "init".
+
+        Raises:
+            RuntimeError: _description_
+
+        Returns:
+            _type_: _description_
+        """
         if path is None:
             path = self.dir
         if state == "init":
@@ -55,7 +73,7 @@ class CalculationQE(Calculation):
         # makedir(filename)
         self.st.write_espresso(filename=path2poscar)
         # self.list_pos.append(path2poscar)
-        self.path2poscar=path2poscar
+        self.path2poscar = path2poscar
         return path2poscar
 
     def set_output_filenames(self, out_name, version):
@@ -71,7 +89,8 @@ class CalculationQE(Calculation):
                     self.input_instance.input_params[section][param] = self.set.params[
                         param
                     ]
-                    print(f"Updated: {section} {param} => {self.set.params[param]}")
+                    print(
+                        f"Updated: {section} {param} => {self.set.params[param]}")
         pass  # Placeholder
 
     def add_potcar(self):
@@ -82,7 +101,8 @@ class CalculationQE(Calculation):
         with open(path2potcar, "w") as f:
             f.write("ATOMIC_SPECIES \n")
             for z, el in zip(self.init.znucl, self.init.typat):
-                f.write(f"{element_name_inv(z)} {z} {element_name_inv(z)}.upf \n")
+                f.write(
+                    f"{element_name_inv(z)} {z} {element_name_inv(z)}.upf \n")
                 self.list_pot.append(f"{path2pot}/{element_name_inv(z)}.upf")
         self.list_tmp.append(path2potcar)
 
@@ -106,13 +126,13 @@ class CalculationQE(Calculation):
 
     def copy_to_cluster(self, list_to_copy, update):
         list_to_copy += self.list_pot
-        if self.flavour == 'qe-acbn0':
-            list_to_copy+=['./main.py']
+        if self.flavour == "qe-acbn0":
+            list_to_copy += ["./main.py"]
         list_to_copy.extend(glob.glob(os.path.join(self.dir, "*POSCAR*")))
         # list_to_copy+=self.list_pos
         # print(self.list_pos)
         if "up" in update:
-            printlog('Files to copy:', list_to_copy)
+            printlog("Files to copy:", list_to_copy)
             push_to_server(
                 list_to_copy,
                 self.project_path_cluster + "/" + self.dir,
@@ -124,50 +144,73 @@ class CalculationQE(Calculation):
         self.get_file(os.path.basename(path_to_outcar), up=load)
         return path_to_outcar
 
-    def make_incar(self, mode='scf',  flavour='qe'):
+    def make_incar(self, mode="scf", flavour="qe"):
         self.flavour = flavour
         incar_list = []
         setseq = [self.set]
-        if hasattr(self.set, 'set_sequence') and self.set.set_sequence:
+        if hasattr(self.set, "set_sequence") and self.set.set_sequence:
             for s in self.set.set_sequence:
                 setseq.append(s)
         nsets = len(setseq)
         for i, curset in enumerate(setseq):
             if nsets == 1:
-                name_mod = ''
+                name_mod = ""
             else:
-                name_mod = curset.ise+'.'
+                name_mod = curset.ise + "."
             # path2input = f"{self.dir}/{name_mod}INCAR"
             # path2incar = f"{self.dir}/{name_mod}qe_input.incar.in"
             self.input_params = curset.params
             self.input_params["system"]["nat"] = self.st.natom
-            self.input_params["system"]["ntyp"] = len([z for z in self.st.znucl])
-            if mode == 'scf':
-                path2input = f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.scf.in'
+            self.input_params["system"]["ntyp"] = len(
+                [z for z in self.st.znucl])
+            if mode == "scf":
+                path2input = (
+                    f"{self.dir}/INCAR"
+                    if flavour == "qe"
+                    else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.scf.in'
+                )
                 path2incar = f"{self.dir}/qe_input.incar.in"
-                self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
+                self.write_input_file(
+                    output_filename=path2incar, inputdict=self.input_params
+                )
                 self.list_tmp.append(path2incar)
-                print(path2incar,self.input_params)
-                print('debug')
+                print(path2incar, self.input_params)
+                print("debug")
                 # self.list_tmp.append(path2incar)
-            elif mode =='nscf':
-                path2input =  f"{self.dir}/INCAR" if flavour=='qe' else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
+            elif mode == "nscf":
+                path2input = (
+                    f"{self.dir}/INCAR"
+                    if flavour == "qe"
+                    else f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.nscf.in'
+                )
                 path2incar = f"{self.dir}/qe_input.incar.in"
                 self.input_params["control"]["calculation"] = '"nscf"'
                 # self.input_params["system"]["nbnd"] = 30
-                self.write_input_file(output_filename=path2incar, inputdict=self.input_params)
+                self.write_input_file(
+                    output_filename=path2incar, inputdict=self.input_params
+                )
 
-            elif mode=='projwfc':
-                self._init_defualt() # has to be moved to set_functions
-                path2input=f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.projwfc.in'
-                self.input_params_projwfc_['PROJWFC']["prefix"] = self.input_params["control"]["prefix"]
-                self.input_params_projwfc_['PROJWFC']["outdir"] = self.input_params["control"]["outdir"] 
-                self.write_input_file(output_filename=path2input, inputdict=self.input_params_projwfc_)
-                   # Generate INPUT
-            if mode != 'projwfc':
+            elif mode == "projwfc":
+                self._init_defualt()  # has to be moved to set_functions
+                path2input = f'{self.dir}/{self.input_params["control"]["prefix"][1:-1]}.projwfc.in'
+                self.input_params_projwfc_["PROJWFC"]["prefix"] = self.input_params[
+                    "control"
+                ]["prefix"]
+                self.input_params_projwfc_["PROJWFC"]["outdir"] = self.input_params[
+                    "control"
+                ]["outdir"]
+                self.write_input_file(
+                    output_filename=path2input, inputdict=self.input_params_projwfc_
+                )
+                # Generate INPUT
+            if mode != "projwfc":
                 print(self.list_tmp[::-1])
                 with open(path2input, "w") as outfile:
-                    list2run = self.list_tmp[::-1]+[self.path2poscar] if flavour =='qe-acbn0' else self.list_tmp[::-1]
+                    list2run = (
+                        self.list_tmp[::-1] + [self.path2poscar]
+                        if flavour == "qe-acbn0"
+                        else self.list_tmp[::-1]
+                    )
                     for fname in list2run:
                         with open(fname) as infile:
                             outfile.write(infile.read())
@@ -176,10 +219,9 @@ class CalculationQE(Calculation):
             incar_list.append(path2input)
         # [os.remove(tmp) for tmp in self.list_tmp]
         return incar_list
-    
 
     def clean_tmp(self):
-        os.system(f'rm {self.dir}/qe_input*')
+        os.system(f"rm {self.dir}/qe_input*")
 
     def _init_defualt(self):
         default_input_params = {
@@ -205,17 +247,18 @@ class CalculationQE(Calculation):
             "electrons": {},
             "ions": {},
             "cell": {"cell_dofree": "'ibrav'"},
+        }
+        default_input_params_projwfc = {
+            "PROJWFC": {
+                "prefix": "MgO",
+                "outdir": "'./'",
+                "filpdos": "'./proj'",
+                "lwrite_overlaps": ".TRUE.",
+                "lbinary_data": ".false.",
             }
-        default_input_params_projwfc={
-            'PROJWFC':{
-                    'prefix':'MgO',
-                    'outdir':"'./'",
-                    'filpdos':"'./proj'",
-                    'lwrite_overlaps':'.TRUE.',
-                    'lbinary_data': '.false.',
-                }}
+        }
 
-        self.input_params_projwfc_= default_input_params_projwfc.copy()
+        self.input_params_projwfc_ = default_input_params_projwfc.copy()
         self.input_params_ = default_input_params.copy()
 
     def update_params(self, section, key, value):
@@ -227,16 +270,16 @@ class CalculationQE(Calculation):
 
     def write_input_file(self, output_filename="./scf.in", inputdict=None):
         if "KPOINTS" in inputdict.keys():
-            del  inputdict["KPOINTS"]
-        elif  "KSPACING" in  inputdict.keys():
-            del  inputdict["KSPACING"]
+            del inputdict["KPOINTS"]
+        elif "KSPACING" in inputdict.keys():
+            del inputdict["KSPACING"]
         with open(output_filename, "w") as f:
             for section, params in inputdict.items():
                 f.write(f"&{section}\n")
                 for key, value in params.items():
                     f.write(f"    {key} = {value}\n")
                 f.write("/\n")
-        print('file written')
+        print("file written")
 
     def read_input_file(self, input_filename="./scf.in"):
         with open(input_filename, "r") as f:
@@ -311,7 +354,8 @@ class CalculationQE(Calculation):
             # print ('associated outcars = ',self.associated_outcars)
             printlog("read_results(): choose_outcar", choose_outcar)
             path_to_outcar = join(
-                dirname(self.path["output"]), self.associated_outcars[choose_outcar - 1]
+                dirname(self.path["output"]
+                        ), self.associated_outcars[choose_outcar - 1]
             )
             printlog(self.associated_outcars)
         else:
@@ -408,10 +452,9 @@ class CalculationQE(Calculation):
             text = outcar.read().decode(errors="replace")
             outcarlines = str(text).split("\n")
         for line in outcarlines:
-            
-            if 'Total force' in line:
-                 self.force = float(line.split()[3])
-                
+            if "Total force" in line:
+                self.force = float(line.split()[3])
+
             if "!" in line:
                 self.energy_sigma0 = float(line.split()[4])
                 self.e0 = self.energy_sigma0
@@ -447,9 +490,9 @@ class CalculationQE(Calculation):
         self.input_params["system"]["nat"] = self.st.natom
         self.input_params["system"]["ntyp"] = len([z for z in self.st.znucl])
         # nscf_part
-        self.input_params["control"]["calc"] = 'nscf'
+        self.input_params["control"]["calc"] = "nscf"
         # tmp
-        self.input_params["system"]["nbnd"] = '30'
+        self.input_params["system"]["nbnd"] = "30"
         self.write_input_file(output_filename=path2incar)
         self.list_tmp.append(path2incar)
 
@@ -461,7 +504,7 @@ class CalculationQE(Calculation):
                     outfile.write(infile.read())
                 os.remove(fname)
         return [path2input]
-    
+
     def make_incar_projwfc(self):
         path2input = f"{self.dir}/INCAR"
         # Generate Head (system/electron/ion)
@@ -473,10 +516,17 @@ class CalculationQE(Calculation):
             self._init_defualt()
 
         # projwfc_part
-        self.input_params_projwfc['projwfc']["prefix"] = self.input_params["control"]["prefix"]
-        self.input_params_projwfc['projwfc']["outdir"] = self.input_params["control"]["outdir"] 
+        self.input_params_projwfc["projwfc"]["prefix"] = self.input_params["control"][
+            "prefix"
+        ]
+        self.input_params_projwfc["projwfc"]["outdir"] = self.input_params["control"][
+            "outdir"
+        ]
 
-        self.write_input_file(output_filename=f'{self.input_params["control"]["prefix"]}.projwfc.in', pp='projwfc')
+        self.write_input_file(
+            output_filename=f'{self.input_params["control"]["prefix"]}.projwfc.in',
+            pp="projwfc",
+        )
         # self.list_tmp.append(path2incar)
 
         return [path2input]
