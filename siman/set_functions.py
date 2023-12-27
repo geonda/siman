@@ -445,8 +445,8 @@ class InputSet():
         # require fix
         if 'KPOINTS' not in self.params.keys() and 'KSPACING' not in self.params.keys():
             self.vasp_params['KSPACING'] = 0.2
-        elif 'KSPACING' in self.params.keys():
-            self.vasp_params['KSPACING'] = self.params['KSPACING']['value']
+        #elif 'KSPACING' in self.params.keys():
+            #self.vasp_params['KSPACING'] = self.params['KSPACING']['value']
 
     def load(self,param, inplace = False):
         """
@@ -1108,8 +1108,8 @@ def init_default_sets(init = 0):
     
     setname = 'qe'
     if init or setname not in varset: #init only once
-        s.kpoints_file = True
         s = InputSet(setname, calculator = 'qe') #default starting set without relaxation
+        s.kpoints_file = True
         # print('Init_sets', s.calculator)
         s.params  = {
             "control": {

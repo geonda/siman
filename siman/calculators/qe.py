@@ -145,6 +145,7 @@ class CalculationQE(Calculation):
         return path_to_outcar
 
     def make_incar(self, mode="scf", flavour="qe"):
+        print(self.set, '#'*10)
         self.flavour = flavour
         incar_list = []
         setseq = [self.set]
