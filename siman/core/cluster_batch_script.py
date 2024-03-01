@@ -291,11 +291,11 @@ def run_command(cl, option, name, parrallel_run_command,
 
             else:
                 if cl.calculator == 'vasp':
-                    f.write(parrallel_run_command +" >"+name+".log\n")
+                    s.write(parrallel_run_command +" >"+name+".log\n")
                 elif cl.calculator == 'gaussian':
                     f.write(parrallel_run_command +" < input.gau > "+name+".out\n")
                 elif cl.calculator == 'qe':
-                    f.write(parrallel_run_command +" < scf.in > "+name+".log\n")
+                    f.write(parrallel_run_command +" < scf.in > "+name[name.rindex('.')+1:]+".OUTCAR\n")
                 elif cl.calculator == 'qe-acbn0':
                     f.write("python "+name+".log\n")
                 else:
@@ -316,19 +316,26 @@ def mv_files_according_versions(cl, savefile, v, name_mod = '', write = True,
         rm_chg_wav - if True than CHGCAR and WAVECAR are removed
 
         savefile (str) - key, which determines what files should be saved
-            'o' - OUTCAR
-            'i' - INCAR
-            'v' - CHG
-            'c' - CHGCAR
-            'p' - PARCHG
-            'l' - LOCPOT
-            'd' - DOSCAR
-            'a' - AECCAR0, AECCAR2
-            'x' - vasprun.xml
-            't' - XDATCAR
-            'z' - OSZICAR
-            'w' - WAVECAR
+            files_key_dict = {"o": "OUTCAR",
+                              "s": "CONTCAR",
+                              "e": "EIGENVAL",
+                              "v": "CHG",
+                              "c": "CHGCAR",
+                              "p": "PARCHG",
+                              "r": "PROCAR",
+                              "l": "LOCPOT",
+                              "d": "DOSCAR",
+                              "a0": "AECCAR0",
+                              "a2": "AECCAR2",
+                              "x": "vasprun.xml",
+                              "t": "XDATCAR",
+                              "z": "OSZICAR",
+                              "w": "WAVECAR",
+                              "f": "WAVEDER"
 
+
+            '!' follwed after key, e.g. 'c!' means that the CHGCAR will saved as well
+            '@' follwed after the key, e.g. 'c@' means that the CHGCAR will be zipped
     """   
     printlog('The value of savefile is', savefile)
     
@@ -805,9 +812,13 @@ def write_footer(cl, set_mod = '', run_tool_flag = True,
 
 
 
-            run_command(cl, option = option, name = cl.id[0]+'.'+cl.id[1]+'.100'+name_mod+'.fitted', 
-                parrallel_run_command = parrallel_run_command, write = True, mpi = mpi, corenum = corenum, f = f)
-
+            # this is tmp solution 
+            if cl.calculator == 'qe':
+                run_command(cl, option = option, name = cl.id[0]+'.'+cl.id[1]+'.100'+name_mod+'', 
+                    parrallel_run_command = parrallel_run_command, write = True, mpi = mpi, corenum = corenum, f = f)
+            else:
+                run_command(cl, option = option, name = cl.id[0]+'.'+cl.id[1]+'.100'+name_mod+'.fitted', 
+                    parrallel_run_command = parrallel_run_command, write = True, mpi = mpi, corenum = corenum, f = f)
             # print(final_analysis_flag)
             # sys.exit()
 

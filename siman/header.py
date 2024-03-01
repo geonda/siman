@@ -88,7 +88,7 @@ if 0:
 
 
 
-def _update_configuration(filename, pfolder = None):
+def _update_configuration(filename, pfolder = None, clusters=None):
     """
     A service function to update header parameters for specific user/project, such as provided in project_conf.py
     or global parameters, such as provided in simanrc.py
@@ -121,6 +121,8 @@ def _update_configuration(filename, pfolder = None):
     import importlib.util, sys
     spec = importlib.util.spec_from_file_location('project_conf', filename)
     project_conf = importlib.util.module_from_spec(spec)
+    if clusters:
+        setattr(header, "CLUSTERS", clusters)
     spec.loader.exec_module(project_conf)
     # print(dir(project_conf))
     config_vars = ['MEM_CPU','CIF2CELL', 'DEFAULT_CLUSTER', 'EXCLUDE_NODES', 
@@ -137,7 +139,8 @@ def _update_configuration(filename, pfolder = None):
             setattr(header, var, value)
             # exec(var + " = " + str(value))
         except AttributeError:
-            print('Warning! Your '+ configfile_name +' doesnot contain', var)
+            ''
+            # print('Warning! Your '+ configfile_name +' doesnot contain', var)
             pass
         # print(var, value)
     # CLUSTERS = getattr(project_conf, 'CLUSTERS')
@@ -145,7 +148,6 @@ def _update_configuration(filename, pfolder = None):
     # print(CLUSTERS)
 
     return
-
 
 
 
